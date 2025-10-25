@@ -4,12 +4,17 @@
 
 This assignment is to be created in the node-homework folder.  As usual, create your assignment8 git branch.  Then npm install the following packages:
 
-- jsonwebtoken
-- cookie-parser
-- cors
-- express-xss-sanitizer
-- express-rate-limit
-- helmet
+```bash
+npm install jsonwebtoken cookie-parser cors express-xss-sanitizer express-rate-limit helmet
+```
+
+**Package Descriptions:**
+- `jsonwebtoken` - For creating and verifying JWT tokens
+- `cookie-parser` - For parsing cookies from HTTP requests
+- `cors` - For handling Cross-Origin Resource Sharing
+- `express-xss-sanitizer` - For protecting against XSS attacks
+- `express-rate-limit` - For rate limiting API requests
+- `helmet` - For setting security-related HTTP headers
 
 You can use `npm run tdd assignment8` to run tests for this assignment.  
 
@@ -27,6 +32,8 @@ Your app currently has a global user id, to simulate a logon and access control.
 
 ## **What do we Need in the JWT?**
 
+> **📚 Concept Review**: Before implementing JWT tokens, make sure you understand what they are and how they work. See **Lesson 8, Section 8.3** for a detailed explanation.
+
 We need the following:
 
 1. A cryptographic signature, to be sure that the JWT originates with our back end.  The signature relies on a secret, a long string that is impossible to guess.  You don't want this in the code, so you put it in the .env file.  The secret is used to sign the JWT and to verify inbound JWTs.
@@ -34,6 +41,8 @@ We need the following:
 2. Something that uniquely identifies the user, in our case, the id of the user record.
 
 3. The CSRF token.
+
+> **📚 Concept Review**: CSRF (Cross-Site Request Forgery) attacks are explained in **Lesson 8, Section 8.4**. Understanding how these attacks work will help you implement proper protection.
 
 4. A timeout, so that the JWT can't be used indefinitely.
 
@@ -46,23 +55,26 @@ You need to generate a JWT secret. Because no one else has the secret, no one el
 Add the following utility routine to controllers/userController.js:
 
 ```js
-const jwt = require("jsonwebtoken");
 const { randomUUID } = require("crypto");
+const jwt = require("jsonwebtoken");
 
-const setJwtCookie = (req, res, user) => {
-  // Sign JWT
-  const payload = { id: user.id, csrfToken: randomUUID() }; 
-  req.user = payload; // this is a convenient way to return the csrf token to the caller.
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" }); // 1 hour expiration
-
-  // Set cookie.  Note that the cookie flags have to be different in production and in test.
-  res.cookie("jwt", token, {
+const cookieFlags = (req) => {
+  return {
     ...(process.env.NODE_ENV === "production" && { domain: req.hostname }), // add domain into cookie for production only
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
-    maxAge: 3600000, // 1 hour expiration.  Ends up as max-age 3600 in the cookie.
-  });
+  };
+};
+
+const setJwtCookie = (req, res, user) => {
+  // Sign JWT
+  const payload = { id: user.id, csrfToken: randomUUID() };
+  req.user = payload; // this is a convenient way to return the csrf token to the caller.
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" }); // 1 hour expiration
+
+  // Set cookie.  Note that the cookie flags have to be different in production and in test.
+  res.cookie("jwt", token, { ...cookieFlags(req), maxAge: 3600000 }); // 1 hour expiration
   return payload.csrfToken; // this is needed in the body returned by login() or register()
 };
 ```
@@ -71,7 +83,7 @@ You see that the JWT has the elements we said we needed, and that the cookie has
 
 An aside:  The `jwt.sign()` method can be invoked synchronously (as above), or you can pass an optional callback, in which case it occurs asynchronously.  All other things being equal, asynchronous calls are better, because they allow other requests to proceed while this one is being handled.  For your project, the synchronous call is good enough.
 
-You can now modify login() and register() so that they use this routine and to that each return an appropriate body with a name and csrfToken, and so that they no longer reference a global user ID.  You can also modify logoff to clear the cookie using `res.clearCookie("jwt")`.
+You can now modify login() and register() so that they use this routine and to that each return an appropriate body with a name and csrfToken, and so that they no longer reference a global user ID.  You can also modify logoff to clear the cookie using `res.clearCookie("jwt", cookieFlags(req))`.  Be careful: You need to set the cookie flags when clearing the cookie to the same values used for setting it, or the cookie won't be cleared when you deploy to the Internet.  Of course, you don't want to set `maxAge` when clearing the cookie.
 
 ## **The Middleware for the JWT**
 

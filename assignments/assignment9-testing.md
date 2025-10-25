@@ -410,8 +410,8 @@ const waitForRouteHandlerCompletion = require("./waitForRouteHandlerCompletion")
 const prisma = require("../db/prisma");
 const { createUser } = require("../services/userService");
 const httpMocks = require("node-mocks-http");
-const { register, logoff } = require("../controllers/userController");
-const { logonRouteHandler, jwtMiddleware } = require("../passport/passport")
+const { register, logoff, login } = require("../controllers/userController");
+const jwtMiddleware = require("../middleware/jwtMiddleware")
 
 // a few useful globals
 let saveRes = null;
@@ -460,7 +460,7 @@ describe("testing logon, register, and logoff", () => {
       body: { email: "bob@sample.com", password: "Pa$$word20" },
     });
     saveRes = MockResponseWithCookies();
-    await waitForRouteHandlerCompletion(logonRouteHandler, req, saveRes);
+    await waitForRouteHandlerCompletion(login, req, saveRes);
     expect(saveRes.statusCode).toBe(200); // success!
   });
 })
@@ -664,7 +664,7 @@ To run the TDD for assignment 9, run `npm run lesson9TDD` .  You should get test
 
 #### **1️⃣ Add, Commit, and Push Your Changes**
 
-- Within your node-homework folder, do a git add and a git commit for the files you have created, so that they are added to the `assignment11` branch.
+- Within your node-homework folder, do a git add and a git commit for the files you have created, so that they are added to the `assignment9` branch.
 - Push that branch to GitHub.
 
 #### **2️⃣ Create a Pull Request**
